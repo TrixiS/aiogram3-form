@@ -12,7 +12,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.magic_filter import MagicFilter
 
 SubmitCallback = Optional[Callable[..., Any]]
-FormFilter = Union[MagicFilter, Callable[[types.Message, Any], Awaitable[Any]]]
+FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
 
 
 class FormState(StatesGroup):

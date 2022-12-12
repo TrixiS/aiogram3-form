@@ -51,14 +51,21 @@ class FormMeta(ABCMeta):
 
     __form_cls_names: List[str] = []
 
-    def __new__(cls, cls_name: str, *args, **kwargs):
-        cls.clear_state_on_submit = kwargs.get("clear_state_on_submit", True)
+    def __new__(
+        cls,
+        cls_name: str,
+        parents: tuple,
+        cls_dict: dict,
+        *,
+        clear_state_on_submit=True,
+    ):
+        cls_dict["clear_state_on_submit"] = clear_state_on_submit
 
         if cls_name in cls.__form_cls_names:
             raise NameError("Form with the same name does exist")
 
         cls.__form_cls_names.append(cls_name)
-        return super().__new__(cls, cls_name, *args)
+        return super().__new__(cls, cls_name, parents, cls_dict)
 
 
 class Form(ABC, metaclass=FormMeta):

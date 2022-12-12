@@ -13,6 +13,7 @@ from aiogram.utils.magic_filter import MagicFilter
 
 SubmitCallback = Optional[Callable[..., Any]]
 FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
+Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
 
 
 class FormState(StatesGroup):
@@ -24,6 +25,7 @@ class FormFieldInfo:
     enter_message_text: str
     error_message_text: Optional[str]
     filter: Optional[FormFilter]
+    reply_markup: Optional[Markup]
 
 
 def FormField(
@@ -31,11 +33,13 @@ def FormField(
     enter_message_text: str,
     filter: Optional[FormFilter] = None,
     error_message_text: Optional[str] = None,
+    reply_markup: Optional[Markup] = None,
 ) -> Any:
     return FormFieldInfo(
         enter_message_text=enter_message_text,
         error_message_text=error_message_text,
         filter=filter,
+        reply_markup=reply_markup,
     )
 
 
@@ -68,6 +72,8 @@ class FormMeta(ABCMeta):
         return super().__new__(cls, cls_name, parents, cls_dict)
 
 
+# TODO: add support for DI in async filters
+#       so test it out first
 class Form(ABC, metaclass=FormMeta):
     __default_filters = {
         str: F.text,
@@ -172,6 +178,7 @@ class Form(ABC, metaclass=FormMeta):
         await state_ctx.bot.send_message(
             state_ctx.key.chat_id,
             first_field.info.enter_message_text,  # type: ignore
+            reply_markup=first_field.info.reply_markup,  # type: ignore
         )
 
         if getattr(cls, "__registered", False):
@@ -198,7 +205,10 @@ class Form(ABC, metaclass=FormMeta):
 
         if next_field:
             await state.update_data(current_field_name=next_field.name)
-            return await message.answer(next_field.info.enter_message_text)
+            return await message.answer(
+                next_field.info.enter_message_text,
+                reply_markup=next_field.info.reply_markup,
+            )
 
         if not cls.__submit_callback:
             raise TypeError(

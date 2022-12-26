@@ -3,7 +3,7 @@ import functools
 import inspect
 from abc import ABC, ABCMeta
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, ClassVar, List, Optional, Type, Union
+from typing import Any, Awaitable, Callable, ClassVar, List, Optional, Set, Type, Union
 
 from aiogram import F, types
 from aiogram.dispatcher.router import Router
@@ -96,6 +96,8 @@ class Form(ABC, metaclass=FormMeta):
 
     __submit_callback: SubmitCallback = None
 
+    __registered_forms: Set[Type["Form"]] = set()
+
     @classmethod
     def submit(cls):
         def decorator(submit_callback: SubmitCallback):
@@ -183,7 +185,7 @@ class Form(ABC, metaclass=FormMeta):
             reply_markup=first_field.info.reply_markup or REMOVE_MARKUP,  # type: ignore
         )
 
-        if getattr(cls, "__registered", False):
+        if cls in Form.__registered_forms:
             return
 
         router.message.register(
@@ -192,7 +194,7 @@ class Form(ABC, metaclass=FormMeta):
             cls.__current_field_filter,
         )
 
-        cls.__registered = True
+        Form.__registered_forms.add(cls)
 
     @classmethod
     async def __resolve_callback(

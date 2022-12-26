@@ -15,6 +15,8 @@ SubmitCallback = Optional[Callable[..., Any]]
 FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
 Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
 
+REMOVE_MARKUP = types.ReplyKeyboardRemove(remove_keyboard=True)
+
 
 class FormState(StatesGroup):
     waiting_field_value = State()
@@ -178,7 +180,7 @@ class Form(ABC, metaclass=FormMeta):
         await state_ctx.bot.send_message(
             state_ctx.key.chat_id,
             first_field.info.enter_message_text,  # type: ignore
-            reply_markup=first_field.info.reply_markup,  # type: ignore
+            reply_markup=first_field.info.reply_markup or REMOVE_MARKUP,  # type: ignore
         )
 
         if getattr(cls, "__registered", False):

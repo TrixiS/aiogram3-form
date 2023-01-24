@@ -2,54 +2,21 @@ import datetime
 import functools
 import inspect
 from abc import ABC, ABCMeta
-from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, ClassVar, List, Optional, Set, Type, Union
 
 from aiogram import F, types
 from aiogram.dispatcher.router import Router
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.magic_filter import MagicFilter
+
+from .field import FormFieldInfo, _FormFieldData
+from .state import FormState
 
 SubmitCallback = Optional[Callable[..., Any]]
 FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
 Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
 
 REMOVE_MARKUP = types.ReplyKeyboardRemove(remove_keyboard=True)
-
-
-class FormState(StatesGroup):
-    waiting_field_value = State()
-
-
-@dataclass(frozen=True)
-class FormFieldInfo:
-    enter_message_text: str
-    error_message_text: Optional[str]
-    filter: Optional[FormFilter]
-    reply_markup: Optional[Markup]
-
-
-def FormField(
-    *,
-    enter_message_text: str,
-    filter: Optional[FormFilter] = None,
-    error_message_text: Optional[str] = None,
-    reply_markup: Optional[Markup] = None,
-) -> Any:
-    return FormFieldInfo(
-        enter_message_text=enter_message_text,
-        error_message_text=error_message_text,
-        filter=filter,
-        reply_markup=reply_markup,
-    )
-
-
-@dataclass
-class _FormFieldData:
-    name: str
-    type: Type
-    info: FormFieldInfo
 
 
 class FormMeta(ABCMeta):
@@ -74,8 +41,6 @@ class FormMeta(ABCMeta):
         return super().__new__(cls, cls_name, parents, cls_dict)
 
 
-# TODO: add support for DI in async filters
-#       so test it out first
 class Form(ABC, metaclass=FormMeta):
     __default_filters = {
         str: F.text,
@@ -108,7 +73,7 @@ class Form(ABC, metaclass=FormMeta):
     @classmethod
     def __from_state_data(cls, state_data):
         form_object = cls()
-        form_object.__dict__.update(state_data["values"])
+        form_object.__dict__.update(state_data["__form_values"])
         return form_object
 
     @classmethod
@@ -174,9 +139,9 @@ class Form(ABC, metaclass=FormMeta):
         await state_ctx.set_state(FormState.waiting_field_value)
 
         await state_ctx.update_data(
-            current_field_name=first_field.name,  # type: ignore
-            values={},
-            form_name=cls.__name__,
+            __current_field_name=first_field.name,  # type: ignore
+            __form_values={},
+            __form_name=cls.__name__,
         )
 
         await state_ctx.bot.send_message(
@@ -201,8 +166,8 @@ class Form(ABC, metaclass=FormMeta):
         cls, message: types.Message, state: FSMContext, value: Any, **data
     ):
         state_data = await state.get_data()
-        current_field_name: str = state_data["current_field_name"]
-        state_data["values"][current_field_name] = value
+        current_field_name: str = state_data["__current_field_name"]
+        state_data["__form_values"][current_field_name] = value
         await state.set_data(state_data)
 
         next_field = cls.__get_next_field(current_field_name)
@@ -237,10 +202,10 @@ class Form(ABC, metaclass=FormMeta):
     ):
         state_data = await state.get_data()
 
-        if state_data["form_name"] != cls.__name__:
+        if state_data["__form_name"] != cls.__name__:
             return
 
-        current_field_name: str = state_data["current_field_name"]
+        current_field_name: str = state_data["__current_field_name"]
         current_field = cls.__get_field_data_by_name(current_field_name)
 
         field_filter = current_field.info.filter or cls.__get_filter_from_type(
@@ -256,7 +221,7 @@ class Form(ABC, metaclass=FormMeta):
         else:
             filter_result = field_filter.resolve(message)
 
-        if filter_result:
+        if filter_result is not None:
             return {"value": filter_result}
 
         if current_field.info.error_message_text:

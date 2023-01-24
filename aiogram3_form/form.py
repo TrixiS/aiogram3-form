@@ -155,7 +155,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         next_field = cls.__get_next_field(current_field_name)
 
         if next_field:
-            await state.update_data(current_field_name=next_field.name)
+            await state.update_data(__current_field_name=next_field.name)
             return await message.answer(
                 next_field.info.enter_message_text,
                 reply_markup=next_field.info.reply_markup or REMOVE_MARKUP,

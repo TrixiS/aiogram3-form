@@ -130,7 +130,9 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         )
 
         if first_field.info.enter_callback:
-            await first_field.info.enter_callback(first_field)
+            await first_field.info.enter_callback(
+                state_ctx.key.chat_id, state_ctx.key.user_id, first_field
+            )
         else:
             await state_ctx.bot.send_message(
                 state_ctx.key.chat_id,
@@ -164,7 +166,9 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             await state.update_data(__current_field_name=next_field.name)
 
             if next_field.info.enter_callback:
-                return next_field.info.enter_callback(next_field)
+                return next_field.info.enter_callback(
+                    state.key.chat_id, state.key.user_id, next_field
+                )
 
             return await message.answer(
                 next_field.info.enter_message_text,

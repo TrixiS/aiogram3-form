@@ -6,7 +6,7 @@ from aiogram.utils.magic_filter import MagicFilter
 
 Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
 FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
-EnterCallback = Callable[["FormFieldData"], Awaitable[Any]]
+EnterCallback = Callable[[int, int, "FormFieldData"], Awaitable[Any]]
 
 
 @dataclass(frozen=True)

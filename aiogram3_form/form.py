@@ -114,6 +114,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         except IndexError:
             return None
 
+    # TODO: method to send enter message
     @classmethod
     async def start(cls, state_ctx: FSMContext):
         first_field = cls.__get_next_field(None)
@@ -166,7 +167,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             await state.update_data(__current_field_name=next_field.name)
 
             if next_field.info.enter_callback:
-                return next_field.info.enter_callback(
+                return await next_field.info.enter_callback(
                     state.key.chat_id, state.key.user_id, next_field
                 )
 

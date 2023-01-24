@@ -1,7 +1,7 @@
 import functools
 import inspect
 from abc import ABC, ABCMeta
-from typing import Any, Callable, ClassVar, List, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, Optional, Set, Type, Union
 
 from aiogram import types
 from aiogram.dispatcher.router import Router
@@ -18,9 +18,10 @@ REMOVE_MARKUP = types.ReplyKeyboardRemove(remove_keyboard=True)
 
 
 class FormMeta(ABCMeta):
+    router: ClassVar[Router]
     clear_state_on_submit: ClassVar[bool] = True
 
-    __form_cls_names: List[str] = []
+    __form_cls_names: Set[str] = set()
 
     def __new__(
         cls,
@@ -28,18 +29,21 @@ class FormMeta(ABCMeta):
         parents: tuple,
         cls_dict: dict,
         *,
+        router: Router,
         clear_state_on_submit=True,
     ):
-        cls_dict["clear_state_on_submit"] = clear_state_on_submit
-
         if cls_name in cls.__form_cls_names:
             raise NameError("Form with the same name does exist")
 
-        cls.__form_cls_names.append(cls_name)
+        cls.__form_cls_names.add(cls_name)
+
+        cls_dict["clear_state_on_submit"] = clear_state_on_submit
+        cls_dict["router"] = router
+
         return super().__new__(cls, cls_name, parents, cls_dict)
 
 
-class Form(ABC, metaclass=FormMeta):
+class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
     __registered_forms: Set[Type["Form"]] = set()
     __submit_callback: Optional[SubmitCallback] = None
 
@@ -111,11 +115,7 @@ class Form(ABC, metaclass=FormMeta):
             return None
 
     @classmethod
-    async def start(
-        cls,
-        router: Router,
-        state_ctx: FSMContext,
-    ):
+    async def start(cls, state_ctx: FSMContext):
         first_field = cls.__get_next_field(None)
 
         await state_ctx.set_state(FormState.waiting_field_value)
@@ -135,7 +135,7 @@ class Form(ABC, metaclass=FormMeta):
         if cls in Form.__registered_forms:
             return
 
-        router.message.register(
+        cls.router.message.register(
             cls.__resolve_callback,
             FormState.waiting_field_value,
             cls.__current_field_filter,

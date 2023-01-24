@@ -8,7 +8,7 @@ from aiogram.dispatcher.router import Router
 from aiogram.fsm.context import FSMContext
 
 from . import filters
-from .field import FormFieldInfo, _FormFieldData
+from .field import FormFieldData, FormFieldInfo
 from .state import FormState
 
 SubmitCallback = Callable[..., Any]
@@ -94,13 +94,13 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
     def __get_field_data_by_name(cls, name: str):
         field_info: FormFieldInfo = getattr(cls, name)
         field_type = cls.__annotations__[name]
-        field_data = _FormFieldData(name, field_type, field_info)
+        field_data = FormFieldData(name, field_type, field_info)
         return field_data
 
     @classmethod
     def __get_next_field(
         cls, current_field_name: Optional[str]
-    ) -> Optional[_FormFieldData]:
+    ) -> Optional[FormFieldData]:
         field_names = tuple(cls.__annotations__.keys())
 
         if current_field_name is None:
@@ -118,6 +118,9 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
     async def start(cls, state_ctx: FSMContext):
         first_field = cls.__get_next_field(None)
 
+        if first_field is None:
+            raise TypeError("First field couldn't be None")
+
         await state_ctx.set_state(FormState.waiting_field_value)
 
         await state_ctx.update_data(
@@ -126,11 +129,14 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             __form_name=cls.__name__,
         )
 
-        await state_ctx.bot.send_message(
-            state_ctx.key.chat_id,
-            first_field.info.enter_message_text,  # type: ignore
-            reply_markup=first_field.info.reply_markup or REMOVE_MARKUP,  # type: ignore
-        )
+        if first_field.info.enter_callback:
+            await first_field.info.enter_callback(first_field)
+        else:
+            await state_ctx.bot.send_message(
+                state_ctx.key.chat_id,
+                first_field.info.enter_message_text,  # type: ignore
+                reply_markup=first_field.info.reply_markup or REMOVE_MARKUP,  # type: ignore
+            )
 
         if cls in Form.__registered_forms:
             return
@@ -156,6 +162,10 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
 
         if next_field:
             await state.update_data(__current_field_name=next_field.name)
+
+            if next_field.info.enter_callback:
+                return next_field.info.enter_callback(next_field)
+
             return await message.answer(
                 next_field.info.enter_message_text,
                 reply_markup=next_field.info.reply_markup or REMOVE_MARKUP,
@@ -207,6 +217,9 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             return {"value": filter_result}
 
         if current_field.info.error_message_text:
-            await message.answer(current_field.info.error_message_text)
+            await message.answer(
+                current_field.info.error_message_text,
+                reply_markup=current_field.info.reply_markup or REMOVE_MARKUP,
+            )
 
         return False

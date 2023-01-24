@@ -6,6 +6,7 @@ from aiogram.utils.magic_filter import MagicFilter
 
 Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
 FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
+EnterCallback = Callable[["FormFieldData"], Awaitable[Any]]
 
 
 @dataclass(frozen=True)
@@ -14,10 +15,11 @@ class FormFieldInfo:
     error_message_text: Optional[str]
     filter: Optional[FormFilter]
     reply_markup: Optional[Markup]
+    enter_callback: EnterCallback | None
 
 
 @dataclass
-class _FormFieldData:
+class FormFieldData:
     name: str
     type: Type
     info: FormFieldInfo
@@ -29,10 +31,12 @@ def FormField(
     filter: Optional[FormFilter] = None,
     error_message_text: Optional[str] = None,
     reply_markup: Optional[Markup] = None,
+    enter_callback: EnterCallback | None = None
 ) -> Any:
     return FormFieldInfo(
         enter_message_text=enter_message_text,
         error_message_text=error_message_text,
         filter=filter,
         reply_markup=reply_markup,
+        enter_callback=enter_callback,
     )

@@ -171,7 +171,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
                 )
 
             return await message.answer(
-                next_field.info.enter_message_text,
+                next_field.info.enter_message_text,  # type: ignore
                 reply_markup=next_field.info.reply_markup or REMOVE_MARKUP,
             )
 

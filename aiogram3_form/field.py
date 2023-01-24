@@ -11,7 +11,7 @@ EnterCallback = Callable[[int, int, "FormFieldData"], Awaitable[Any]]
 
 @dataclass(frozen=True)
 class FormFieldInfo:
-    enter_message_text: str
+    enter_message_text: str | None
     error_message_text: Optional[str]
     filter: Optional[FormFilter]
     reply_markup: Optional[Markup]
@@ -27,12 +27,15 @@ class FormFieldData:
 
 def FormField(
     *,
-    enter_message_text: str,
+    enter_message_text: str | None = None,
     filter: Optional[FormFilter] = None,
     error_message_text: Optional[str] = None,
     reply_markup: Optional[Markup] = None,
     enter_callback: EnterCallback | None = None
 ) -> Any:
+    if enter_message_text is None and enter_callback is None:
+        raise ValueError("enter_message_text or enter_callback should be set")
+
     return FormFieldInfo(
         enter_message_text=enter_message_text,
         error_message_text=error_message_text,

@@ -1,19 +1,17 @@
-import datetime
 import functools
 import inspect
 from abc import ABC, ABCMeta
-from typing import Any, Awaitable, Callable, ClassVar, List, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, List, Optional, Set, Type, Union
 
-from aiogram import F, types
+from aiogram import types
 from aiogram.dispatcher.router import Router
 from aiogram.fsm.context import FSMContext
-from aiogram.utils.magic_filter import MagicFilter
 
+from . import filters
 from .field import FormFieldInfo, _FormFieldData
 from .state import FormState
 
-SubmitCallback = Optional[Callable[..., Any]]
-FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
+SubmitCallback = Callable[..., Any]
 Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
 
 REMOVE_MARKUP = types.ReplyKeyboardRemove(remove_keyboard=True)
@@ -42,26 +40,8 @@ class FormMeta(ABCMeta):
 
 
 class Form(ABC, metaclass=FormMeta):
-    __default_filters = {
-        str: F.text,
-        int: F.text.func(int),
-        float: F.text.func(float),
-        datetime.date: F.text.func(
-            lambda text: datetime.datetime.strptime(text, r"%d.%m.%Y").date()
-        ),
-        datetime.datetime: F.text.func(
-            lambda text: datetime.datetime.strptime(text, r"%d.%m.%Y %H:%M")
-        ),
-        datetime.time: F.text.func(
-            lambda text: datetime.datetime.strptime(text, r"%H:%M").time()
-        ),
-        types.PhotoSize: F.photo.func(lambda photo: photo[-1]),
-        types.Document: F.document.func(lambda document: document),
-    }
-
-    __submit_callback: SubmitCallback = None
-
     __registered_forms: Set[Type["Form"]] = set()
+    __submit_callback: Optional[SubmitCallback] = None
 
     @classmethod
     def submit(cls):
@@ -78,10 +58,12 @@ class Form(ABC, metaclass=FormMeta):
 
     @classmethod
     def __get_filter_from_type(cls, field_type: Type):
-        field_filter = cls.__default_filters.get(field_type)
+        field_filter = filters.DEFAULT_FORM_FILTERS.get(field_type)
 
         if field_filter is None:
-            raise ValueError("This field type is not supported yet")
+            raise TypeError(
+                f"There is no default filter for type {field_type}. You should consider writing your own filter"
+            )
 
         return field_filter
 

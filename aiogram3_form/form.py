@@ -6,6 +6,7 @@ from typing import Any, Callable, ClassVar, Optional, Set, Type, Union
 from aiogram import types
 from aiogram.dispatcher.router import Router
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.magic_filter import MagicFilter
 
 from . import filters
 from .field import FormFieldData, FormFieldInfo
@@ -200,7 +201,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         state_data = await state.get_data()
 
         if state_data["__form_name"] != cls.__name__:
-            return
+            return False
 
         current_field_name: str = state_data["__current_field_name"]
         current_field = cls.__get_field_data_by_name(current_field_name)
@@ -215,11 +216,15 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             )
 
             filter_result = await prepared_field_filter()
-        else:
+            return dict(value=await prepared_field_filter())
+
+        if isinstance(field_filter, MagicFilter):
             filter_result = field_filter.resolve(message)
 
-        if filter_result is not None:
-            return {"value": filter_result}
+            if filter_result is None:
+                return False
+
+            return dict(value=filter_result)
 
         if current_field.info.error_message_text:
             await message.answer(

@@ -210,6 +210,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             current_field.type
         )
 
+        # TODO: allow using sync filters
         if inspect.iscoroutinefunction(field_filter):
             prepared_field_filter = cls.__prepare_function(
                 field_filter, message, **data
@@ -220,7 +221,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             if filter_result is False:
                 return False
 
-            return dict(value=await prepared_field_filter())
+            return dict(value=filter_result)
 
         if isinstance(field_filter, MagicFilter):
             filter_result = field_filter.resolve(message)

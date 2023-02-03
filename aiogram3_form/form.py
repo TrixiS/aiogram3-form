@@ -216,6 +216,10 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             )
 
             filter_result = await prepared_field_filter()
+
+            if filter_result is False:
+                return False
+
             return dict(value=await prepared_field_filter())
 
         if isinstance(field_filter, MagicFilter):

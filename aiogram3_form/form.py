@@ -226,7 +226,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         if isinstance(field_filter, MagicFilter):
             filter_result = field_filter.resolve(message)
 
-            if filter_result is None:
+            if not filter_result:
                 return False
 
             return dict(value=filter_result)

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Optional, Type, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Type, Union
 
 from aiogram import types
 from aiogram.utils.magic_filter import MagicFilter
@@ -7,8 +7,7 @@ from aiogram.utils.magic_filter import MagicFilter
 Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
 FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
 
-# TODO: pass di data into enter callback
-EnterCallback = Callable[[int, int, "FormFieldData"], Awaitable[Any]]
+EnterCallback = Callable[[int, int, Dict[str, Any]], Awaitable[Any]]
 
 
 @dataclass(frozen=True)

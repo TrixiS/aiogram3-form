@@ -1,7 +1,7 @@
 import functools
 import inspect
 from abc import ABC, ABCMeta
-from typing import Any, Callable, ClassVar, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, Dict, Optional, Set, Type, Union
 
 from aiogram import types
 from aiogram.dispatcher.router import Router
@@ -48,6 +48,9 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
     __registered_forms: Set[Type["Form"]] = set()
     __submit_callback: Optional[SubmitCallback] = None
 
+    def __init__(self, state: FSMContext):
+        self.state = state
+
     @classmethod
     def submit(cls):
         def decorator(submit_callback: SubmitCallback):
@@ -56,8 +59,9 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         return decorator
 
     @classmethod
-    def __from_state_data(cls, state_data):
-        form_object = cls()
+    async def __from_state(cls, state: FSMContext):
+        state_data = await state.get_data()
+        form_object = cls(state)
         form_object.__dict__.update(state_data["__form_values"])
         return form_object
 
@@ -133,7 +137,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
 
         if first_field.info.enter_callback:
             await first_field.info.enter_callback(
-                state_ctx.key.chat_id, state_ctx.key.user_id, first_field
+                state_ctx.key.chat_id, state_ctx.key.user_id, {}
             )
         else:
             await state_ctx.bot.send_message(
@@ -165,11 +169,12 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         next_field = cls.__get_next_field(current_field_name)
 
         if next_field:
-            await state.update_data(__current_field_name=next_field.name)
+            state_data["__current_field_name"] = next_field.name
+            await state.set_data(state_data)
 
             if next_field.info.enter_callback:
                 return await next_field.info.enter_callback(
-                    state.key.chat_id, state.key.user_id, next_field
+                    state.key.chat_id, state.key.user_id, state_data
                 )
 
             return await message.answer(
@@ -182,8 +187,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
                 f"{cls.__name__} submit callback is {cls.__submit_callback}"
             )
 
-        state_data = await state.get_data()
-        form_object = cls.__from_state_data(state_data)
+        form_object = cls.__from_state(state)
         data["state"] = state
 
         prepared_submit_callback = cls.__prepare_submit_callback(form_object, **data)
@@ -238,3 +242,18 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             )
 
         return False
+
+    async def answer(
+        self,
+        text: str,
+        reply_markup: Union[
+            types.InlineKeyboardMarkup,
+            types.ReplyKeyboardMarkup,
+            types.ReplyKeyboardRemove,
+            types.ForceReply,
+            None,
+        ] = None,
+    ):
+        await self.state.bot.send_message(
+            self.state.key.chat_id, text=text, reply_markup=reply_markup
+        )

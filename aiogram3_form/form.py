@@ -187,7 +187,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
                 f"{cls.__name__} submit callback is {cls.__submit_callback}"
             )
 
-        form_object = cls.__from_state(state)
+        form_object = await cls.__from_state(state)
         data["state"] = state
 
         prepared_submit_callback = cls.__prepare_submit_callback(form_object, **data)

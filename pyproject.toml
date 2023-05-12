@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aiogram3-form"
-version = "0.3.1"
+version = "0.3.2"
 description = "A library to create forms in aiogram3"
 authors = ["TrixiS <oficialmorozov@gmail.com>"]
 license = "MIT"
@@ -11,7 +11,7 @@ packages = [{include = "aiogram3_form"}]
 python = "^3.8"
 
 [tool.poetry.dev-dependencies]
-aiogram = {git = "https://github.com/aiogram/aiogram", branch = "dev-3.x", tag = "3.0.0b7" }
+aiogram = {git = "https://github.com/aiogram/aiogram", rev = "cf269e15f4a098b051f97bc68bb2e710d3d61d8a" }
 
 [build-system]
 requires = ["poetry-core"]

@@ -1,9 +1,9 @@
 import functools
 import inspect
 from abc import ABC, ABCMeta
-from typing import Any, Callable, ClassVar, Dict, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, Optional, Set, Type, Union
 
-from aiogram import types
+from aiogram import Bot, types
 from aiogram.dispatcher.router import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.magic_filter import MagicFilter
@@ -19,6 +19,7 @@ REMOVE_MARKUP = types.ReplyKeyboardRemove(remove_keyboard=True)
 
 
 class FormMeta(ABCMeta):
+    bot: ClassVar[Bot]
     router: ClassVar[Router]
     clear_state_on_submit: ClassVar[bool] = True
 
@@ -44,7 +45,7 @@ class FormMeta(ABCMeta):
         return super().__new__(cls, cls_name, parents, cls_dict)
 
 
-class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
+class Form(ABC, metaclass=FormMeta, router=None, bot=None):  # type: ignore
     __registered_forms: Set[Type["Form"]] = set()
     __submit_callback: Optional[SubmitCallback] = None
 
@@ -140,7 +141,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
                 state_ctx.key.chat_id, state_ctx.key.user_id, {}
             )
         else:
-            await state_ctx.bot.send_message(
+            await cls.bot.send_message(
                 state_ctx.key.chat_id,
                 first_field.info.enter_message_text,  # type: ignore
                 reply_markup=first_field.info.reply_markup or REMOVE_MARKUP,  # type: ignore
@@ -254,6 +255,6 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             None,
         ] = None,
     ):
-        await self.state.bot.send_message(
+        await self.__class__.bot.send_message(
             self.state.key.chat_id, text=text, reply_markup=reply_markup
         )

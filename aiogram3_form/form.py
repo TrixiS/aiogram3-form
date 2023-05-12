@@ -32,7 +32,8 @@ class FormMeta(ABCMeta):
         cls_dict: dict,
         *,
         router: Router,
-        clear_state_on_submit=True,
+        bot: Bot,
+        clear_state_on_submit: bool = True,
     ):
         if cls_name in cls.__form_cls_names:
             raise NameError("Form with the same name does exist")
@@ -41,6 +42,7 @@ class FormMeta(ABCMeta):
 
         cls_dict["clear_state_on_submit"] = clear_state_on_submit
         cls_dict["router"] = router
+        cls_dict["bot"] = bot
 
         return super().__new__(cls, cls_name, parents, cls_dict)
 

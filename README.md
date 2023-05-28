@@ -1,48 +1,53 @@
 # aiogram3-form
 A library to create forms in aiogram3
 
+```shell
+pip install aiogram3-form
+```
+
 # Example
 ```Python
-# suppose you import here your router and bot objects
-from aiogram import F, types
+import asyncio
 
+from aiogram import Bot, Dispatcher, F, Router, types
 from aiogram3_form import Form, FormField
+from aiogram.fsm.context import FSMContext
+
+bot = Bot(token=YOUR_TOKEN)
+dispatcher = Dispatcher()
+router = Router()
+dispatcher.include_router(router)
 
 
-class NameForm(Form, router=your_router):
+class NameForm(Form, router=router):
     first_name: str = FormField(enter_message_text="Enter your first name please")
-    second_name: str = FormField(enter_message_text="Enter your second name please", filter=F.text.len() > 10)
-    age: int = FormField(enter_message_text="Enter age as integer", error_message_text="Age should be numeric!")
+    second_name: str = FormField(
+        enter_message_text="Enter your second name please",
+        filter=F.text.len() > 10 & F.text,
+    )
+    age: int = FormField(
+        enter_message_text="Enter age as integer",
+        error_message_text="Age should be numeric!",
+    )
 
 
 @NameForm.submit()
 async def name_form_submit_handler(form: NameForm, event_chat: types.Chat):
     # handle form data
     # also supports aiogram standart DI (e. g. middlewares, filters, etc)
-    await bot.send_message(
-        event_chat.id, f"Your full name is {form.first_name} {form.second_name}!"
+    await form.answer(
+        f"{form.first_name} {form.second_name} of age {form.age} in chat {event_chat.title}"
     )
-    
-    
+
+
 @router.message(F.text == "/form")
-async def form_handler(message: types.Message, state: FSMContext):
-    await NameForm.start(state)  # start your form
-```
-
-After submit callback call the state would be automatically cleared.
-
-You can control this state using the following metaclass kwarg
-
-```Python
-...
+async def form_handler(_, state: FSMContext):
+    await NameForm.start(bot, state)  # start your form
 
 
-class NameForm(Form, clear_state_on_submit=False):  # True by default
-    ...
+async def main():
+    await dispatcher.start_polling(bot)
 
 
-@NameForm.submit()
-async def name_form_submit_handler(form: NameForm, state: FSMContext):
-    # so you can set your exit state manually
-    await state.set_state(...)
+asyncio.run(main())
 ```

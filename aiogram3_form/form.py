@@ -1,7 +1,7 @@
 import functools
 import inspect
 from abc import ABC, ABCMeta
-from typing import Any, Callable, ClassVar, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, Dict, Optional, Set, Type, Union
 
 from aiogram import Bot, types
 from aiogram.dispatcher.router import Router
@@ -19,7 +19,6 @@ REMOVE_MARKUP = types.ReplyKeyboardRemove(remove_keyboard=True)
 
 
 class FormMeta(ABCMeta):
-    bot: ClassVar[Bot]
     router: ClassVar[Router]
     clear_state_on_submit: ClassVar[bool] = True
 
@@ -32,7 +31,6 @@ class FormMeta(ABCMeta):
         cls_dict: dict,
         *,
         router: Router,
-        bot: Bot,
         clear_state_on_submit: bool = True,
     ):
         if cls_name in cls.__form_cls_names:
@@ -42,17 +40,17 @@ class FormMeta(ABCMeta):
 
         cls_dict["clear_state_on_submit"] = clear_state_on_submit
         cls_dict["router"] = router
-        cls_dict["bot"] = bot
 
         return super().__new__(cls, cls_name, parents, cls_dict)
 
 
-class Form(ABC, metaclass=FormMeta, router=None, bot=None):  # type: ignore
-    __registered_forms: Set[Type["Form"]] = set()
+class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
+    __registered_forms: Set[str] = set()
     __submit_callback: Optional[SubmitCallback] = None
 
-    def __init__(self, state: FSMContext):
-        self.state = state
+    def __init__(self, bot: Bot, chat_id: int):
+        self.bot = bot
+        self.chat_id = chat_id
 
     @classmethod
     def submit(cls):
@@ -62,9 +60,10 @@ class Form(ABC, metaclass=FormMeta, router=None, bot=None):  # type: ignore
         return decorator
 
     @classmethod
-    async def __from_state(cls, state: FSMContext):
-        state_data = await state.get_data()
-        form_object = cls(state)
+    async def __create_object(
+        cls, handler_data: dict[str, Any], state_data: Dict[str, Any]
+    ):
+        form_object = cls(handler_data["event_chat"].id, handler_data["bot"])
         form_object.__dict__.update(state_data["__form_values"])
         return form_object
 
@@ -122,9 +121,8 @@ class Form(ABC, metaclass=FormMeta, router=None, bot=None):  # type: ignore
         except IndexError:
             return None
 
-    # TODO: method to send enter message
     @classmethod
-    async def start(cls, state_ctx: FSMContext):
+    async def start(cls, bot: Bot, state_ctx: FSMContext):
         first_field = cls.__get_next_field(None)
 
         if first_field is None:
@@ -143,7 +141,7 @@ class Form(ABC, metaclass=FormMeta, router=None, bot=None):  # type: ignore
                 state_ctx.key.chat_id, state_ctx.key.user_id, {}
             )
         else:
-            await cls.bot.send_message(
+            await bot.send_message(
                 state_ctx.key.chat_id,
                 first_field.info.enter_message_text,  # type: ignore
                 reply_markup=first_field.info.reply_markup or REMOVE_MARKUP,  # type: ignore
@@ -158,7 +156,7 @@ class Form(ABC, metaclass=FormMeta, router=None, bot=None):  # type: ignore
             cls.__current_field_filter,
         )
 
-        Form.__registered_forms.add(cls)
+        Form.__registered_forms.add(cls.__name__)
 
     @classmethod
     async def __resolve_callback(
@@ -190,7 +188,7 @@ class Form(ABC, metaclass=FormMeta, router=None, bot=None):  # type: ignore
                 f"{cls.__name__} submit callback is {cls.__submit_callback}"
             )
 
-        form_object = await cls.__from_state(state)
+        form_object = await cls.__create_object(data, state_data)
         data["state"] = state
 
         prepared_submit_callback = cls.__prepare_submit_callback(form_object, **data)
@@ -256,7 +254,11 @@ class Form(ABC, metaclass=FormMeta, router=None, bot=None):  # type: ignore
             types.ForceReply,
             None,
         ] = None,
+        reply_to_message_id: Optional[int] = None,
     ):
-        await self.__class__.bot.send_message(
-            self.state.key.chat_id, text=text, reply_markup=reply_markup
+        return await self.bot.send_message(
+            self.chat_id,
+            text=text,
+            reply_markup=reply_markup,
+            reply_to_message_id=reply_to_message_id,
         )

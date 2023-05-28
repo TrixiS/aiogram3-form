@@ -63,7 +63,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
     async def __create_object(
         cls, handler_data: dict[str, Any], state_data: Dict[str, Any]
     ):
-        form_object = cls(handler_data["event_chat"].id, handler_data["bot"])
+        form_object = cls(handler_data["bot"], handler_data["event_chat"].id)
         form_object.__dict__.update(state_data["__form_values"])
         return form_object
 

@@ -15,8 +15,6 @@ from .state import FormState
 SubmitCallback = Callable[..., Any]
 Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
 
-REMOVE_MARKUP = types.ReplyKeyboardRemove(remove_keyboard=True)
-
 
 class FormMeta(ABCMeta):
     router: ClassVar[Router]
@@ -45,7 +43,6 @@ class FormMeta(ABCMeta):
 
 
 class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
-    __registered_forms: Set[str] = set()
     __submit_callback: Optional[SubmitCallback] = None
 
     def __init__(self, bot: Bot, chat_id: int):
@@ -56,6 +53,12 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
     def submit(cls):
         def decorator(submit_callback: SubmitCallback):
             cls.__submit_callback = submit_callback
+
+            cls.router.message.register(
+                cls.__resolve_callback,
+                FormState.waiting_field_value,
+                cls.__current_field_filter,
+            )
 
         return decorator
 
@@ -137,26 +140,15 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         )
 
         if first_field.info.enter_callback:
-            await first_field.info.enter_callback(
+            return await first_field.info.enter_callback(
                 state_ctx.key.chat_id, state_ctx.key.user_id, {}
             )
-        else:
-            await bot.send_message(
-                state_ctx.key.chat_id,
-                first_field.info.enter_message_text,  # type: ignore
-                reply_markup=first_field.info.reply_markup or REMOVE_MARKUP,  # type: ignore
-            )
 
-        if cls in Form.__registered_forms:
-            return
-
-        cls.router.message.register(
-            cls.__resolve_callback,
-            FormState.waiting_field_value,
-            cls.__current_field_filter,
+        return await bot.send_message(
+            state_ctx.key.chat_id,
+            first_field.info.enter_message_text,  # type: ignore
+            reply_markup=first_field.info.reply_markup,
         )
-
-        Form.__registered_forms.add(cls.__name__)
 
     @classmethod
     async def __resolve_callback(
@@ -180,7 +172,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
 
             return await message.answer(
                 next_field.info.enter_message_text,  # type: ignore
-                reply_markup=next_field.info.reply_markup or REMOVE_MARKUP,
+                reply_markup=next_field.info.reply_markup,
             )
 
         if not cls.__submit_callback:
@@ -239,7 +231,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         if current_field.info.error_message_text:
             await message.answer(
                 current_field.info.error_message_text,
-                reply_markup=current_field.info.reply_markup or REMOVE_MARKUP,
+                reply_markup=current_field.info.reply_markup,
             )
 
         return False

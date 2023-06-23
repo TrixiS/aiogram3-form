@@ -132,9 +132,8 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             raise TypeError("First field couldn't be None")
 
         await state_ctx.set_state(FormState.waiting_field_value)
-
         await state_ctx.update_data(
-            __current_field_name=first_field.name,  # type: ignore
+            __current_field_name=first_field.name,
             __form_values={},
             __form_name=cls.__name__,
         )
@@ -207,6 +206,13 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             current_field.type
         )
 
+        async def send_error_message():
+            if current_field.info.error_message_text:
+                return await message.answer(
+                    current_field.info.error_message_text,
+                    reply_markup=current_field.info.reply_markup,
+                )
+
         # TODO: allow using sync filters
         if inspect.iscoroutinefunction(field_filter):
             prepared_field_filter = cls.__prepare_function(
@@ -215,26 +221,22 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
 
             filter_result = await prepared_field_filter()
 
-            if filter_result is False:
-                return False
+            if filter_result is not False:
+                return dict(value=filter_result)
 
-            return dict(value=filter_result)
+            await send_error_message()
+            return False
 
         if isinstance(field_filter, MagicFilter):
             filter_result = field_filter.resolve(message)
 
-            if not filter_result:
-                return False
+            if filter_result is not None:
+                return dict(value=filter_result)
 
-            return dict(value=filter_result)
+            await send_error_message()
+            return False
 
-        if current_field.info.error_message_text:
-            await message.answer(
-                current_field.info.error_message_text,
-                reply_markup=current_field.info.reply_markup,
-            )
-
-        return False
+        raise TypeError(f"Invalid filter specified for field {current_field_name}")
 
     async def answer(
         self,

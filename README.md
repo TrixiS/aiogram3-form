@@ -13,7 +13,7 @@ from aiogram import Bot, Dispatcher, F, Router, types
 from aiogram3_form import Form, FormField
 from aiogram.fsm.context import FSMContext
 
-bot = Bot(token=YOUR_TOKEN)
+bot = Bot(token="YOUR_TOKEN")
 dispatcher = Dispatcher()
 router = Router()
 dispatcher.include_router(router)
@@ -23,7 +23,7 @@ class NameForm(Form, router=router):
     first_name: str = FormField(enter_message_text="Enter your first name please")
     second_name: str = FormField(
         enter_message_text="Enter your second name please",
-        filter=F.text.len() > 10 & F.text,
+        filter=(F.text.len() > 10) & F.text,
     )
     age: int = FormField(
         enter_message_text="Enter age as integer",

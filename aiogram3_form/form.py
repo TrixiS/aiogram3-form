@@ -22,7 +22,7 @@ def _form_fields_data_generator(cls: "FormMeta"):
     for field_name, field_type in annotations.items():
         value = getattr(cls, field_name, None)
 
-        if value is None or not isinstance(value, FormFieldInfo):
+        if not isinstance(value, FormFieldInfo):
             continue
 
         yield FormFieldData(name=field_name, type=field_type, info=value)

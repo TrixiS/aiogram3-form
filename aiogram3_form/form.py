@@ -1,7 +1,7 @@
 import functools
 import inspect
 from abc import ABC, ABCMeta
-from typing import Any, Callable, ClassVar, Dict, Optional, Set, Type, Union
+from typing import Any, Callable, ClassVar, Optional, Set, Tuple, Type, Union
 
 from aiogram import Bot, types
 from aiogram.dispatcher.router import Router
@@ -14,6 +14,18 @@ from .state import FormState
 
 SubmitCallback = Callable[..., Any]
 Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
+
+
+def _form_fields_data_generator(cls: "FormMeta"):
+    annotations = inspect.get_annotations(cls)
+
+    for field_name, field_type in annotations.items():
+        value = getattr(cls, field_name, None)
+
+        if value is None or not isinstance(value, FormFieldInfo):
+            continue
+
+        yield FormFieldData(name=field_name, type=field_type, info=value)
 
 
 class FormMeta(ABCMeta):
@@ -39,10 +51,15 @@ class FormMeta(ABCMeta):
         cls_dict["clear_state_on_submit"] = clear_state_on_submit
         cls_dict["router"] = router
 
-        return super().__new__(cls, cls_name, parents, cls_dict)
+        subcls = super().__new__(cls, cls_name, parents, cls_dict)
+        setattr(subcls, "fields", tuple(_form_fields_data_generator(subcls)))
+
+        return subcls
 
 
 class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
+    fields: Tuple[FormFieldData, ...]
+
     __submit_callback: Optional[SubmitCallback] = None
 
     def __init__(self, bot: Bot, chat_id: int):
@@ -51,21 +68,21 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
 
     @classmethod
     def submit(cls):
-        def decorator(submit_callback: SubmitCallback):
-            cls.__submit_callback = submit_callback
+        def _decorator(submit_callback: SubmitCallback):
+            if cls.__submit_callback is not None:
+                raise ValueError(f"{cls.__name__} submit callback already set")
 
+            cls.__submit_callback = submit_callback
             cls.router.message.register(
                 cls.__resolve_callback,
                 FormState.waiting_field_value,
                 cls.__current_field_filter,
             )
 
-        return decorator
+        return _decorator
 
     @classmethod
-    async def __create_object(
-        cls, handler_data: dict[str, Any], state_data: Dict[str, Any]
-    ):
+    def __create_object(cls, handler_data: dict[str, Any], state_data: FormState.Data):
         form_object = cls(handler_data["bot"], handler_data["event_chat"].id)
         form_object.__dict__.update(state_data["__form_values"])
         return form_object
@@ -101,42 +118,18 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         return partial_func
 
     @classmethod
-    def __get_field_data_by_name(cls, name: str):
-        field_info: FormFieldInfo = getattr(cls, name)
-        field_type = cls.__annotations__[name]
-        field_data = FormFieldData(name, field_type, field_info)
-        return field_data
-
-    @classmethod
-    def __get_next_field(
-        cls, current_field_name: Optional[str]
-    ) -> Optional[FormFieldData]:
-        field_names = tuple(cls.__annotations__.keys())
-
-        if current_field_name is None:
-            return cls.__get_field_data_by_name(field_names[0])
-
-        current_field_index = field_names.index(current_field_name)
-
-        try:
-            next_field_name = field_names[current_field_index + 1]
-            return cls.__get_field_data_by_name(next_field_name)
-        except IndexError:
-            return None
-
-    @classmethod
     async def start(cls, bot: Bot, state_ctx: FSMContext):
-        first_field = cls.__get_next_field(None)
-
-        if first_field is None:
-            raise TypeError("First field couldn't be None")
+        first_field = cls.fields[0]
 
         await state_ctx.set_state(FormState.waiting_field_value)
-        await state_ctx.update_data(
-            __current_field_name=first_field.name,
-            __form_values={},
-            __form_name=cls.__name__,
-        )
+
+        state_data: FormState.Data = {
+            "__form_name": cls.__name__,
+            "__form_values": {},
+            "__current_field_index": 0,
+        }
+
+        await state_ctx.update_data(state_data)  # type: ignore
 
         if first_field.info.enter_callback:
             return await first_field.info.enter_callback(
@@ -153,20 +146,28 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
     async def __resolve_callback(
         cls, message: types.Message, state: FSMContext, value: Any, **data
     ):
-        state_data = await state.get_data()
-        current_field_name: str = state_data["__current_field_name"]
-        state_data["__form_values"][current_field_name] = value
-        await state.set_data(state_data)
+        state_data: FormState.Data = await state.get_data()  # type: ignore
+        current_field = cls.fields[state_data["__current_field_index"]]
+        state_data["__form_values"][current_field.name] = value
+        await state.set_data(state_data)  # type: ignore
 
-        next_field = cls.__get_next_field(current_field_name)
+        next_field_index = state_data["__current_field_index"] + 1
+
+        try:
+            next_field = cls.fields[next_field_index]
+        except IndexError:
+            next_field = None
 
         if next_field:
-            state_data["__current_field_name"] = next_field.name
-            await state.set_data(state_data)
+            state_data["__current_field_index"] = next_field_index
+
+            await state.set_data(state_data)  # type: ignore
 
             if next_field.info.enter_callback:
                 return await next_field.info.enter_callback(
-                    state.key.chat_id, state.key.user_id, state_data
+                    state.key.chat_id,
+                    state.key.user_id,
+                    state_data,  # type: ignore
                 )
 
             return await message.answer(
@@ -174,12 +175,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
                 reply_markup=next_field.info.reply_markup,
             )
 
-        if not cls.__submit_callback:
-            raise TypeError(
-                f"{cls.__name__} submit callback is {cls.__submit_callback}"
-            )
-
-        form_object = await cls.__create_object(data, state_data)
+        form_object = cls.__create_object(data, state_data)
         data["state"] = state
 
         prepared_submit_callback = cls.__prepare_submit_callback(form_object, **data)
@@ -194,14 +190,12 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
     async def __current_field_filter(
         cls, message: types.Message, state: FSMContext, **data
     ):
-        state_data = await state.get_data()
+        state_data: FormState.Data = await state.get_data()  # type: ignore
 
         if state_data["__form_name"] != cls.__name__:
             return False
 
-        current_field_name: str = state_data["__current_field_name"]
-        current_field = cls.__get_field_data_by_name(current_field_name)
-
+        current_field = cls.fields[state_data["__current_field_index"]]
         field_filter = current_field.info.filter or cls.__get_filter_from_type(
             current_field.type
         )
@@ -213,7 +207,6 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
                     reply_markup=current_field.info.reply_markup,
                 )
 
-        # TODO: allow using sync filters
         if inspect.iscoroutinefunction(field_filter):
             prepared_field_filter = cls.__prepare_function(
                 field_filter, message, **data
@@ -230,13 +223,22 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         if isinstance(field_filter, MagicFilter):
             filter_result = field_filter.resolve(message)
 
-            if filter_result is not None:
+            if filter_result is not None and filter_result is not False:
                 return dict(value=filter_result)
 
             await send_error_message()
             return False
 
-        raise TypeError(f"Invalid filter specified for field {current_field_name}")
+        if inspect.isfunction(field_filter):
+            filter_result = field_filter(message)
+
+            if filter_result is not False:
+                return dict(value=filter_result)
+
+            await send_error_message()
+            return False
+
+        raise TypeError(f"Invalid filter specified for field {current_field.name}")
 
     async def answer(
         self,

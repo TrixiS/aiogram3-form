@@ -18,8 +18,12 @@ class FormFieldInfo:
     reply_markup: Optional[Markup]
     enter_callback: Optional[EnterCallback]
 
+    def __post_init__(self):
+        if self.enter_message_text is None and self.enter_callback is None:
+            raise ValueError("enter_message_text or enter_callback should be set")
 
-@dataclass
+
+@dataclass(frozen=True)
 class FormFieldData:
     name: str
     type: Type

@@ -2,10 +2,12 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, Optional, Type, Union
 
 from aiogram import types
-from aiogram.utils.magic_filter import MagicFilter
 
-Markup = Union[types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup]
-FormFilter = Union[MagicFilter, Callable[..., Awaitable[Any]]]
+from .filters import FormFilter
+
+Markup = Union[
+    types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup, types.ReplyKeyboardRemove
+]
 
 EnterCallback = Callable[[int, int, Dict[str, Any]], Awaitable[Any]]
 

@@ -1,14 +1,10 @@
 import datetime
-from typing import Any, Awaitable, Callable, Union
+from typing import Any, Callable, Union
 
 from aiogram import F, types
 from aiogram.utils.magic_filter import MagicFilter
 
-FormFilter = Union[
-    MagicFilter,
-    Callable[..., Awaitable[Any]],
-    Callable[[types.Message], Any],
-]
+FormFilter = Union[MagicFilter, Callable[..., Any]]
 
 DEFAULT_FORM_FILTERS = {
     str: F.text,

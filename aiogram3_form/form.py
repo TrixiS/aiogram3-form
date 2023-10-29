@@ -79,6 +79,8 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
                 cls.__current_field_filter,
             )
 
+            return submit_callback
+
         return _decorator
 
     @classmethod

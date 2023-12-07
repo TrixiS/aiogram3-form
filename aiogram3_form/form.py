@@ -232,7 +232,11 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
             return False
 
         if inspect.isfunction(field_filter):
-            filter_result = field_filter(message)
+            prepared_field_filter = cls.__prepare_function(
+                field_filter, message, **data
+            )
+
+            filter_result = prepared_field_filter(message)
 
             if filter_result is not False:
                 return dict(value=filter_result)

@@ -95,7 +95,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
 
         if field_filter is None:
             raise TypeError(
-                f"There is no default filter for type {field_type}. You should consider writing your own filter"
+                f"There is no default filter for type {field_type}. You should consider writing your own filter"  # noqa: E501
             )
 
         return field_filter
@@ -120,7 +120,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
         return partial_func
 
     @classmethod
-    async def start(cls, bot: Bot, state_ctx: FSMContext):
+    async def start(cls, bot: Bot, state_ctx: FSMContext, **data: Any):
         first_field = cls.fields[0]
 
         await state_ctx.set_state(FormState.waiting_field_value)
@@ -135,7 +135,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
 
         if first_field.info.enter_callback:
             return await first_field.info.enter_callback(
-                state_ctx.key.chat_id, state_ctx.key.user_id, {}
+                state_ctx.key.chat_id, state_ctx.key.user_id, data
             )
 
         return await bot.send_message(
@@ -167,9 +167,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
 
             if next_field.info.enter_callback:
                 return await next_field.info.enter_callback(
-                    state.key.chat_id,
-                    state.key.user_id,
-                    state_data,  # type: ignore
+                    state.key.chat_id, state.key.user_id, data | state_data
                 )
 
             return await message.answer(

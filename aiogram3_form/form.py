@@ -234,7 +234,7 @@ class Form(ABC, metaclass=FormMeta, router=None):  # type: ignore
                 field_filter, message, **data
             )
 
-            filter_result = prepared_field_filter(message)
+            filter_result = prepared_field_filter()
 
             if filter_result is not False:
                 return dict(value=filter_result)

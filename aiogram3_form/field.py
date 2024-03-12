@@ -3,13 +3,13 @@ from typing import Any, Awaitable, Callable, Dict, Optional, Type, Union
 
 from aiogram import types
 
-from .filters import FormFilter
+from .filters import FormFilter, _FormFilter
 
 Markup = Union[
     types.ReplyKeyboardMarkup, types.InlineKeyboardMarkup, types.ReplyKeyboardRemove
 ]
 
-EnterCallback = Callable[[int, int, Dict[str, Any]], Awaitable[Any]]
+EnterCallback = Callable[[int, int, Dict[str, Any]], Awaitable[types.Message]]
 
 
 @dataclass(frozen=True)
@@ -20,16 +20,13 @@ class FormFieldInfo:
     reply_markup: Optional[Markup]
     enter_callback: Optional[EnterCallback]
 
-    def __post_init__(self):
-        if self.enter_message_text is None and self.enter_callback is None:
-            raise ValueError("enter_message_text or enter_callback should be set")
-
 
 @dataclass(frozen=True)
 class FormFieldData:
     name: str
     type: Type
     info: FormFieldInfo
+    filter: _FormFilter
 
 
 def FormField(

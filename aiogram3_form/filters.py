@@ -1,10 +1,23 @@
 import datetime
-from typing import Any, Callable, Union
+from enum import IntEnum
+from typing import Any, Callable, NamedTuple, Union
 
 from aiogram import F, types
 from aiogram.utils.magic_filter import MagicFilter
 
 FormFilter = Union[MagicFilter, Callable[..., Any]]
+
+
+class _FormFilterType(IntEnum):
+    magic = 0
+    func = 1
+    coro = 2
+
+
+class _FormFilter(NamedTuple):
+    filter: FormFilter
+    filter_type: _FormFilterType
+
 
 DEFAULT_FORM_FILTERS = {
     str: F.text,

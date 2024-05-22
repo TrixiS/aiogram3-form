@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "aiogram3-form"
-version = "2.0.2"
-description = "A library to create forms in aiogram3"
+version = "2.0.3"
+description = "A library for creating forms in aiogram3"
 authors = ["TrixiS <oficialmorozov@gmail.com>"]
 license = "MIT"
 readme = "README.md"

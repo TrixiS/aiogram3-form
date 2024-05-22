@@ -10,7 +10,7 @@ pip install aiogram3-form
 
 Form is a set of fields that you want your user to fill in. Forms are defined as classses derived from `aiogram3_form.Form` and contain fields with annotated types and `aiogram3_form.FormField` values. You should not inherit your form class from your another form class. (so no deep inheritance).
 
-When you start your form with `.start()` method, your bot will ask a user input values one by one until the end. Reaching the last field of a form means "submitting" it.
+When you start your form with `.start()` method, your bot will ask a user input values one by one until the end. Filling in the last field of a form means "submitting" it.
 
 Forms use default aiogram FSM.
 
@@ -76,7 +76,7 @@ class FruitForm(Form):
 
 ## Form filters
 
-Default filters are built in for types: `str` (check for mesasge text and returns it), `int` (tries to convert message text to int), `float`, `datetime.date`, `datetime.datetime`, `aiogram.types.PhotoSize`, `aiogram.types.Document`, `aiogram.types.Message`
+Default filters are built in for types: `str` (checks for mesasge text and returns it), `int` (tries to convert message text to int), `float`, `datetime.date`, `datetime.datetime`, `aiogram.types.PhotoSize`, `aiogram.types.Document`, `aiogram.types.Message`
 
 Supported form filter kinds: sync function, async function, aiogram magic filter.
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Type
+from typing import Any, Awaitable, Callable
 
 from aiogram import types
 
@@ -24,7 +24,6 @@ class FormFieldInfo:
 @dataclass(frozen=True)
 class FormFieldData:
     name: str
-    type: Type
     info: FormFieldInfo
     transformer: InputTransformer
 
@@ -35,7 +34,7 @@ def FormField(
     filter: FormFilter | None = None,
     error_message_text: str | None = None,
     reply_markup: Markup | None = None,
-    enter_callback: EnterCallback | None = None
+    enter_callback: EnterCallback | None = None,
 ) -> Any:
     if enter_message_text is None and enter_callback is None:
         raise ValueError("enter_message_text or enter_callback should be set")

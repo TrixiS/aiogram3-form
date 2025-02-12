@@ -8,7 +8,7 @@ pip install aiogram3-form
 
 ## What is a form?
 
-Form is a set of fields that you want your user to fill in. Forms are defined as classses derived from `aiogram3_form.Form` and contain fields with annotated types and `aiogram3_form.FormField` values. You should not inherit your form class from your another form class. (so no deep inheritance).
+Form is a set of fields that you want your user to fill in. Forms are defined as classses derived from `aiogram3_form.Form` and contain fields with annotated types and `aiogram3_form.FormField` values. You should not inherit your form class from your another form class (so no deep inheritance).
 
 When you start your form with `.start()` method, your bot will ask a user input values one by one until the end. Filling in the last field of a form means "submitting" it.
 
@@ -19,14 +19,13 @@ Forms use default aiogram FSM.
 ```Python
 import asyncio
 
-from aiogram import Bot, Dispatcher, F, Router
-from aiogram3_form import Form, FormField
+from aiogram import Bot, Dispatcher, F
 from aiogram.fsm.context import FSMContext
+
+from aiogram3_form import Form, FormField
 
 bot = Bot(token="YOUR_TOKEN")
 dispatcher = Dispatcher()
-router = Router()
-dispatcher.include_router(router)
 
 
 class NameForm(Form):
@@ -38,15 +37,22 @@ class NameForm(Form):
     age: int = FormField(enter_message_text="Enter age as integer")
 
 
-@NameForm.submit(router=router)
+@NameForm.submit(
+    router=dispatcher,  # also might use aiogram.Router here
+    clear_state=False,  # if you want to keep fsm state,
+    # defaults to True (sets state to None before calling your submit function)
+)
 async def name_form_submit_handler(form: NameForm):
     # handle form submitted data
-    # also supports aiogram standart DI (e. g. middlewares, filter data, etc)
+    # also supports aiogram standart DI (e. g. middleware, filter data, etc.)
     # you can do anything you want in here
+
+    # .answer() method of a form object is not the only way to reply
+    # use can also use bot.send_message with form.chat_id for example
     await form.answer(f"{form.first_name} {form.second_name} of age {form.age}")
 
 
-@router.message(F.text == "/form")
+@dispatcher.message(F.text == "/form")
 async def form_handler(_, state: FSMContext):
     await NameForm.start(bot, state)  # start your form
 
@@ -56,9 +62,12 @@ asyncio.run(dispatcher.start_polling(bot))
 
 ## Keyboards
 
-You can use any type of keyboard in your form, but only reply keyboards are actually useful. (cause forms only accept messages as input, so no callback queries)
+You can use any type of keyboard in your form, but only reply keyboards are actually useful (because forms only accept messages as input, so no callback queries).
 
 ```Python
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.types import KeyboardButton
+
 FRUITS = ("Orange", "Apple", "Banana")
 
 fruits_markup = (
@@ -76,7 +85,7 @@ class FruitForm(Form):
 
 ## Form filters
 
-Default filters are built in for types: `str` (checks for mesasge text and returns it), `int` (tries to convert message text to int), `float`, `datetime.date`, `datetime.datetime`, `aiogram.types.PhotoSize`, `aiogram.types.Document`, `aiogram.types.Message`
+Default filters are built in for types: `str` (checks for message text and returns it), `int` (tries to convert message text to int), `float`, `datetime.date`, `datetime.datetime`, `aiogram.types.PhotoSize`, `aiogram.types.Document`, `aiogram.types.Message`
 
 Supported form filter kinds: sync function, async function, aiogram magic filter.
 
@@ -87,7 +96,7 @@ Magic filters return `None` on failure, so it's a special case that is handled d
 If your filter fails and `error_message_text` is provided in `FormField` call, an error message will be sent with the provided text.
 
 ```Python
-def sync_fruit_form_filter(message: types.Message) -> str:
+def sync_fruit_form_filter(message: types.Message) -> str | bool:
     if message.text not in FRUITS:
         return False
 
@@ -110,10 +119,13 @@ class FruitForm(Form):
 
 ## Enter callback
 
-Enter callbacks enable you to write your own enter functions for form fields
+Enter callbacks enable you to write your own enter functions for form fields. In case you provide your own enter callback, the `enter_message_text` parameter of `aiogram3.FormField` will be ignored.
 
 ```Python
-async def enter_fruit_callback(chat_id: int, user_id: int, data: dict[str, Any]):
+from aiogram import types
+
+
+async def enter_fruit_callback(chat_id: int, user_id: int, data: dict[str, Any]) -> types.Message:
     # do whatever you want in here
     print(f"user {user_id} has just entered the fruit callback in chat {chat_id}!")
 

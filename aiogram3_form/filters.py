@@ -51,7 +51,7 @@ class MagicInputTransformer(InputTransformer):
 
 
 @dataclass(frozen=True)
-class SyncInputTransformer(InputTransformer):
+class FuncInputTransformer(InputTransformer):
     filter: Callable[..., Any]
 
     async def transform_input_message(
@@ -67,7 +67,7 @@ class SyncInputTransformer(InputTransformer):
 
 
 @dataclass(frozen=True)
-class AsyncInputTransformer(InputTransformer):
+class CoroInputTransformer(InputTransformer):
     filter: Callable[..., Coroutine[Any, Any, Any]]
 
     async def transform_input_message(

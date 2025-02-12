@@ -1,10 +1,10 @@
 from .field import FormField, FormFieldData, FormFieldInfo
 from .filters import (
-    AsyncInputTransformer,
+    CoroInputTransformer,
     FormFilter,
+    FuncInputTransformer,
     InputTransformer,
     MagicInputTransformer,
-    SyncInputTransformer,
 )
 from .form import Form, FormMeta, FormSubmitData
 
@@ -18,6 +18,6 @@ __all__: tuple[str, ...] = (
     "FormFieldData",
     "InputTransformer",
     "MagicInputTransformer",
-    "AsyncInputTransformer",
-    "SyncInputTransformer",
+    "CoroInputTransformer",
+    "FuncInputTransformer",
 )

@@ -32,21 +32,18 @@ def _form_fields_data_generator(cls: "FormMeta") -> Generator[FormFieldData, Any
         if isinstance(field_filter, MagicFilter):
             transformer = filters.MagicInputTransformer(field_filter)
         elif inspect.iscoroutinefunction(field_filter):
-            transformer = filters.AsyncInputTransformer(field_filter)
+            transformer = filters.CoroInputTransformer(field_filter)
         elif inspect.isfunction(field_filter):
-            transformer = filters.SyncInputTransformer(field_filter)
+            transformer = filters.FuncInputTransformer(field_filter)
         else:
             raise TypeError(
                 f"Invalid filter of type {field_filter.__class__.__name__} for field {field_name}"  # noqa: E501
             )
 
-        yield FormFieldData(
-            name=field_name, type=field_type, info=field_info, transformer=transformer
-        )
+        yield FormFieldData(name=field_name, info=field_info, transformer=transformer)
 
 
 class FormStateData(TypedDict):
-    __form_name: str
     __current_field_index: int
     __form_values: dict[str, Any]
 
@@ -86,7 +83,7 @@ class Form(ABC, metaclass=FormMeta):
     ) -> Callable[..., SubmitCallback]:
         def _decorator(submit_callback: SubmitCallback) -> SubmitCallback:
             if cls.__submit_data is not None:
-                raise ValueError(f"{cls.__name__} submit callback already set")
+                raise ValueError(f"{cls.__name__} submit callback is already set")
 
             cls.__submit_data = FormSubmitData(submit_callback, clear_state)
 
@@ -107,7 +104,6 @@ class Form(ABC, metaclass=FormMeta):
         await state_ctx.set_state(cls.__name__)
 
         state_data: FormStateData = {
-            "__form_name": cls.__name__,
             "__form_values": {},
             "__current_field_index": 0,
         }
@@ -142,38 +138,37 @@ class Form(ABC, metaclass=FormMeta):
         current_field = cls.fields[state_data["__current_field_index"]]
         state_data["__form_values"][current_field.name] = _form_value
 
-        try:
-            next_field_index = state_data["__current_field_index"] + 1
-            next_field = cls.fields[next_field_index]
-            state_data["__current_field_index"] = next_field_index
+        next_field_index = state_data["__current_field_index"] + 1
 
-            await state.set_data(
-                state_data,  # type: ignore
+        if next_field_index > len(cls.fields) - 1:
+            if cls.__submit_data.clear_state:
+                await state.set_state(None)
+
+            form_object = cls.__create_object(data, state_data)
+            data["state"] = state
+
+            prepared_submit_callback = utils.prepare_function(
+                cls.__submit_data.callback, form_object, **data
             )
 
-            if next_field.info.enter_callback:
-                return await next_field.info.enter_callback(
-                    state.key.chat_id, state.key.user_id, data | state_data
-                )
+            return await prepared_submit_callback()
 
-            return await message.answer(
-                next_field.info.enter_message_text,  # type: ignore
-                reply_markup=next_field.info.reply_markup,
-            )
-        except IndexError:
-            pass  # submit reached
+        next_field = cls.fields[next_field_index]
+        state_data["__current_field_index"] = next_field_index
 
-        if cls.__submit_data.clear_state:
-            await state.set_state(None)
-
-        form_object = cls.__create_object(data, state_data)
-        data["state"] = state
-
-        prepared_submit_callback = utils.prepare_function(
-            cls.__submit_data.callback, form_object, **data
+        await state.set_data(
+            state_data,  # type: ignore
         )
 
-        await prepared_submit_callback()
+        if next_field.info.enter_callback:
+            return await next_field.info.enter_callback(
+                state.key.chat_id, state.key.user_id, data | state_data
+            )
+
+        return await message.answer(
+            next_field.info.enter_message_text,  # type: ignore
+            reply_markup=next_field.info.reply_markup,
+        )
 
     @classmethod
     async def __current_field_filter(
@@ -182,13 +177,12 @@ class Form(ABC, metaclass=FormMeta):
         state: FSMContext = data["state"]
         state_data: FormStateData = await state.get_data()  # type: ignore
 
-        if state_data["__form_name"] != cls.__name__:
-            return False
-
         current_field = cls.fields[state_data["__current_field_index"]]
-        filter_result, success = (
-            await current_field.transformer.transform_input_message(message, data)
-        )
+
+        (
+            filter_result,
+            success,
+        ) = await current_field.transformer.transform_input_message(message, data)
 
         if success:
             return dict(_form_value=filter_result)

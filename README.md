@@ -121,7 +121,7 @@ class FruitForm(Form):
 
 Enter callbacks enable you to write your own enter functions for form fields. In case you provide your own enter callback, the `enter_message_text` parameter of `aiogram3_form.FormField` will be ignored.
 
-Enter callbacks must return `aiogram3.types.Message`
+Enter callbacks must return `aiogram.types.Message`
 
 ```Python
 from aiogram import types

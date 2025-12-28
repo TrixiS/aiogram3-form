@@ -48,7 +48,7 @@ async def name_form_submit_handler(form: NameForm):
     # you can do anything you want in here
 
     # .answer() method of a form object is not the only way to reply
-    # use can also use bot.send_message with form.chat_id for example
+    # you can also use bot.send_message with form.chat_id for example
     await form.answer(f"{form.first_name} {form.second_name} of age {form.age}")
 
 
@@ -89,7 +89,7 @@ Default filters are built in for types: `str` (checks for message text and retur
 
 Supported form filter kinds: sync function, async function, aiogram magic filter.
 
-If your filter is a function (sync or async), it should take `aiogram.types.Message` as the first argument and return `False`, if it does not pass. If a filter passed, it should return the value you want in your form data.
+If your filter is a function (sync or async), it should take `aiogram.types.Message` as the first argument and return `False`, if it does not pass. If a filter passed, it should return a value you want in your form data.
 
 Magic filters return `None` on failure, so it's a special case that is handled differently.
 
@@ -119,7 +119,9 @@ class FruitForm(Form):
 
 ## Enter callback
 
-Enter callbacks enable you to write your own enter functions for form fields. In case you provide your own enter callback, the `enter_message_text` parameter of `aiogram3.FormField` will be ignored.
+Enter callbacks enable you to write your own enter functions for form fields. In case you provide your own enter callback, the `enter_message_text` parameter of `aiogram3_form.FormField` will be ignored.
+
+Enter callbacks must return `aiogram3.types.Message`
 
 ```Python
 from aiogram import types
